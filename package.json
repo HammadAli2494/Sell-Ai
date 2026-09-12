@@ -1,0 +1,11 @@
+{
+  "name": "sellai",
+  "private": true,
+  "version": "1.0.0",
+  "description": "AI-powered multi-tenant ecommerce SaaS",
+  "scripts": {
+    "dev:client": "npm run dev --prefix client",
+    "dev:server": "npm run dev --prefix server",
+    "install:all": "npm install --prefix server && npm install --prefix client"
+  }
+}

@@ -6,7 +6,7 @@ export async function getAiUsageRequest() {
 }
 
 export async function generateAiRequest(payload) {
-  const response = await api.post("/ai/generate", payload);
+  const response = await api.post("/ai/generate", payload, { skipToast: true, timeout: 90000 });
   return response.data.data;
 }
 
@@ -16,6 +16,6 @@ export async function getPublicAiStatusRequest(slug) {
 }
 
 export async function sendStoreChatRequest(slug, messages) {
-  const response = await api.post(`/ai/public/${slug}/chat`, { messages });
+  const response = await api.post(`/ai/public/${slug}/chat`, { messages }, { skipToast: true, timeout: 90000 });
   return response.data.data;
 }

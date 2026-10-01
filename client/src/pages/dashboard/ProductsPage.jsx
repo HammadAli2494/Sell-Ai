@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useStore } from "../../context/StoreContext.jsx";
 import { useDebounce } from "../../hooks/useDebounce.js";
+import { toast } from "react-toastify";
 import { getErrorMessage } from "../../services/api.js";
 import {
   createProductRequest,
@@ -119,14 +120,17 @@ function ProductsPage() {
     try {
       if (editingId) {
         await updateProductRequest(editingId, payload);
+        toast.success("Product updated successfully");
       } else {
         await createProductRequest(payload);
+        toast.success("Product added successfully");
       }
       setForm(emptyForm);
       setEditingId(null);
       await loadProducts();
     } catch (err) {
       setError(getErrorMessage(err, "Could not save product"));
+      toast.error(getErrorMessage(err, "Could not save product"));
     } finally {
       setSaving(false);
     }
@@ -136,9 +140,11 @@ function ProductsPage() {
     setError("");
     try {
       await deleteProductRequest(productId);
+      toast.success("Product deleted successfully");
       await loadProducts();
     } catch (err) {
       setError(getErrorMessage(err, "Could not delete product"));
+      toast.error(getErrorMessage(err, "Could not delete product"));
     }
   }
 
@@ -235,11 +241,18 @@ function ProductsPage() {
               <label className="ui-label sm:col-span-2">
                 Image URL
                 <input
-                  placeholder="Image URL"
+                  type="url"
+                  placeholder="https://images.unsplash.com/..."
                   value={form.imageUrl}
                   onChange={(event) => setForm({ ...form, imageUrl: event.target.value })}
                   className="ui-input"
                 />
+                <span className="mt-1 block text-xs text-muted">
+                  Paste a public image link. Products without a URL show a placeholder.
+                </span>
+                {form.imageUrl ? (
+                  <ProductImage src={form.imageUrl} alt={form.name} className="mt-3 h-28 w-28" />
+                ) : null}
               </label>
               <label className="ui-label sm:col-span-2">
                 Description

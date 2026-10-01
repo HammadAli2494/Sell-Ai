@@ -13,6 +13,7 @@ import categoryRoutes from "./routes/category.routes.js";
 import customerRoutes from "./routes/customer.routes.js";
 import orderRoutes from "./routes/order.routes.js";
 import productRoutes from "./routes/product.routes.js";
+import publicRoutes from "./routes/public.routes.js";
 import storeRoutes from "./routes/store.routes.js";
 import { webhook as billingWebhook } from "./controllers/billing.controller.js";
 
@@ -22,7 +23,12 @@ if (env.NODE_ENV === "production") {
   app.set("trust proxy", 1);
 }
 
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  }),
+);
 app.use(
   cors({
     origin: env.CLIENT_URL,
@@ -59,6 +65,7 @@ app.get("/api/health", (req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/public", publicRoutes);
 app.use("/api/stores", storeRoutes);
 app.use("/api/billing", billingRoutes);
 app.use("/api/ai", aiRoutes);

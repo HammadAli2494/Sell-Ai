@@ -19,3 +19,18 @@ export const logout = asyncHandler(async (req, res) => {
 export const me = asyncHandler(async (req, res) => {
   sendSuccess(res, { user: req.user });
 });
+
+export const registerCustomer = asyncHandler(async (req, res) => {
+  const data = await authService.registerCustomer(req.body);
+  sendSuccess(res, data, 201);
+});
+
+export const updateProfile = asyncHandler(async (req, res) => {
+  const user = await authService.updateProfile(req.user.id, req.body);
+  sendSuccess(res, { user });
+});
+
+export const changePassword = asyncHandler(async (req, res) => {
+  const data = await authService.changePassword(req.user.id, req.body);
+  sendSuccess(res, data);
+});

@@ -17,7 +17,7 @@ export function StoreProvider({ children }) {
     let cancelled = false;
 
     async function loadStore() {
-      if (!isAuthenticated) {
+      if (!isAuthenticated || (user?.role !== "MERCHANT" && user?.role !== "ADMIN")) {
         setStore(null);
         setLoading(false);
         return;

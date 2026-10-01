@@ -1,6 +1,6 @@
 import prisma from "../config/database.js";
 
-const ORDER_STATUSES = ["PENDING", "PAID", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"];
+const ORDER_STATUSES = ["PENDING", "CONFIRMED", "PAID", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"];
 const PAID_STATUSES = ["PAID", "PROCESSING", "SHIPPED", "DELIVERED"];
 
 function money(value) {
@@ -54,6 +54,7 @@ export async function getStoreAnalytics(storeId, { days = 30 } = {}) {
     paidAgg,
     pendingAgg,
     cancelledCount,
+    deliveredCount,
     statusGroups,
     customerCount,
     productCount,
@@ -80,6 +81,9 @@ export async function getStoreAnalytics(storeId, { days = 30 } = {}) {
     }),
     prisma.order.count({
       where: { storeId, status: "CANCELLED" },
+    }),
+    prisma.order.count({
+      where: { storeId, status: "DELIVERED" },
     }),
     prisma.order.groupBy({
       by: ["status"],
@@ -172,6 +176,7 @@ export async function getStoreAnalytics(storeId, { days = 30 } = {}) {
       pending: money(pendingAgg._sum.total),
       pendingCount: pendingAgg._count,
       cancelledCount,
+      deliveredCount,
       customers: customerCount,
       products: productCount,
       activeProducts: activeProductCount,

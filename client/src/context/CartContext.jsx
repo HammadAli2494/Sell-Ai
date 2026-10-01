@@ -5,7 +5,7 @@ import {
   removeCartItemRequest,
   updateCartItemRequest,
 } from "../services/order.service.js";
-import { clearCartId, setCartId } from "../utils/cartStorage.js";
+import { clearCartId, getLastCartSlug, setCartId, setLastCartSlug } from "../utils/cartStorage.js";
 
 const CartContext = createContext(null);
 
@@ -15,6 +15,9 @@ export function CartProvider({ slug, children }) {
 
   function rememberCart(nextCart) {
     setCart(nextCart);
+    if (slug) {
+      setLastCartSlug(slug);
+    }
     if (nextCart?.id) {
       setCartId(slug, nextCart.id);
     } else {
@@ -58,9 +61,10 @@ export function CartProvider({ slug, children }) {
   }, [slug]);
 
   async function addItem(productId, quantity = 1) {
+    const previousSlug = getLastCartSlug();
     const nextCart = await addCartItemRequest(slug, { productId, quantity });
     rememberCart(nextCart);
-    return nextCart;
+    return { cart: nextCart, switchedStore: Boolean(previousSlug && previousSlug !== slug) };
   }
 
   async function updateItem(itemId, quantity) {

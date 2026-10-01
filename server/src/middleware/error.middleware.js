@@ -21,10 +21,14 @@ export function errorHandler(err, req, res, _next) {
     console.error(err);
   }
 
+  const rawMessage = err.message || "Internal server error";
+  const leaked =
+    /prisma|sql|stack|openai|gemini|stripe|secret|password|jwt/i.test(rawMessage) &&
+    env.NODE_ENV === "production";
   const message =
-    env.NODE_ENV === "production" && isUnhandled
-      ? "Internal server error"
-      : err.message || "Internal server error";
+    (env.NODE_ENV === "production" && isUnhandled) || leaked
+      ? "Something went wrong. Please try again."
+      : rawMessage;
 
   res.status(statusCode).json({
     success: false,

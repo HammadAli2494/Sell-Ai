@@ -15,11 +15,17 @@ enum Role {
 
 enum OrderStatus {
   PENDING
+  CONFIRMED
   PAID
   PROCESSING
   SHIPPED
   DELIVERED
   CANCELLED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
 }
 
 enum PlanName {
@@ -42,6 +48,12 @@ model User {
   passwordHash String
   name         String
   role         Role     @default(MERCHANT)
+  phone        String?
+  address      String?
+  city         String?
+  state        String?
+  postalCode   String?
+  country      String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -49,6 +61,7 @@ model User {
   customers Customer[]
 
   @@index([email])
+  @@index([role])
   @@index([createdAt])
 }
 
@@ -59,6 +72,7 @@ model Store {
   name        String
   slug        String   @unique
   description String?
+  isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -85,6 +99,8 @@ model StoreSettings {
   currency       String   @default("USD")
   returnPolicy   String?
   shippingPolicy String?
+  privacyPolicy  String?
+  termsPolicy    String?
   supportEmail   String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -184,22 +200,32 @@ model CartItem {
 }
 
 model Order {
-  id                    String      @id @default(uuid())
+  id                    String        @id @default(uuid())
   storeId               String
-  store                 Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  store                 Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
   customerId            String
-  customer              Customer    @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  status                OrderStatus @default(PENDING)
-  total                 Decimal     @db.Decimal(10, 2)
+  customer              Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  status                OrderStatus   @default(PENDING)
+  paymentStatus         PaymentStatus @default(UNPAID)
+  total                 Decimal       @db.Decimal(10, 2)
   stripePaymentIntentId String?
-  createdAt             DateTime    @default(now())
-  updatedAt             DateTime    @updatedAt
+  shippingName          String?
+  shippingPhone         String?
+  shippingAddress       String?
+  shippingCity          String?
+  shippingState         String?
+  shippingPostalCode    String?
+  shippingCountry       String?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
 
   items OrderItem[]
 
   @@index([storeId])
   @@index([customerId])
+  @@index([status])
   @@index([createdAt])
+  @@index([storeId, createdAt])
 }
 
 model OrderItem {

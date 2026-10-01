@@ -1,5 +1,6 @@
+import { Type } from "@google/genai";
+import { getGeminiModel, isGeminiConfigured, logGeminiError, requireGemini, withGeminiRetry } from "../config/gemini.js";
 import prisma from "../config/database.js";
-import { isOpenAIConfigured, requireOpenAI } from "../config/openai.js";
 import { HttpError } from "../utils/apiResponse.js";
 import { getStoreEntitlements } from "./billing.service.js";
 import { getPublicOrder } from "./order.service.js";
@@ -16,6 +17,45 @@ const FEATURE_INSTRUCTIONS = {
     'Write marketing copy. Return JSON: {"social":"...","adCopy":"...","email":"..."}.',
 };
 
+function mapAiProviderError(error, context) {
+  if (error instanceof HttpError) {
+    throw error;
+  }
+
+  const details = logGeminiError(context, error, { model: getGeminiModel() });
+  const status = Number(details.status || details.statusCode);
+  const message = String(details.message || "");
+
+  if (status === 401 || status === 403 || /api key|invalid.?key|permission denied|unauthenticated|unregistered callers/i.test(message)) {
+    throw new HttpError(503, "AI is not configured correctly. Check GEMINI_API_KEY on the server.");
+  }
+
+  if (status === 429 || /resource.?exhausted|quota|rate limit|too many requests/i.test(message)) {
+    if (/quota|free.?tier|exceeded/i.test(message)) {
+      throw new HttpError(429, "The Gemini free-tier quota is exhausted. Please try again later.");
+    }
+    throw new HttpError(429, "AI is temporarily unavailable. Please try again later.");
+  }
+
+  if (status === 404 || (/not found|model/i.test(message) && /not found|unsupported|does not exist/i.test(message))) {
+    throw new HttpError(503, "The configured Gemini model is not available.");
+  }
+
+  if (error.geminiRetriesExhausted || status === 503 || /unavailable|high demand|try again later/i.test(message)) {
+    throw new HttpError(503, "AI service is temporarily busy. Please try again shortly.");
+  }
+
+  if (/fetch failed|ECONNRESET|ENOTFOUND|ETIMEDOUT|network|socket|ECONNREFUSED/i.test(message)) {
+    throw new HttpError(503, "AI service is temporarily busy. Please try again shortly.");
+  }
+
+  if (/invalid.*json|empty response|no candidates|blocked|finishreason/i.test(message)) {
+    throw new HttpError(502, "The AI service returned an invalid response.");
+  }
+
+  throw new HttpError(503, "The Gemini request failed. Check the server logs for details.");
+}
+
 function startOfUtcMonth(date = new Date()) {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
 }
@@ -30,7 +70,7 @@ function parseJsonContent(content) {
 
 function publicUsage({ used, limit, entitlements }) {
   return {
-    configured: isOpenAIConfigured(),
+    configured: isGeminiConfigured(),
     used,
     limit,
     remaining: Math.max(0, limit - used),
@@ -126,37 +166,64 @@ function shapeResult(feature, parsed) {
   };
 }
 
+function usageFromGemini(response) {
+  return {
+    inputTokens: response?.usageMetadata?.promptTokenCount || 0,
+    outputTokens: response?.usageMetadata?.candidatesTokenCount || 0,
+  };
+}
+
+function textFromGemini(response) {
+  const text = response?.text;
+  if (typeof text === "string" && text.trim()) {
+    return text;
+  }
+
+  const parts = response?.candidates?.[0]?.content?.parts || [];
+  return parts.map((part) => part.text || "").join("").trim();
+}
+
 export async function generate(storeId, storeName, payload) {
   const input = await resolveInput(storeId, payload);
   await assertWithinLimit(storeId);
-  const openai = requireOpenAI();
+  const gemini = requireGemini();
 
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    temperature: 0.6,
-    max_completion_tokens: 700,
-    response_format: { type: "json_object" },
-    messages: [
-      {
-        role: "system",
-        content: `You write ecommerce copy for a merchant dashboard. ${FEATURE_INSTRUCTIONS[payload.feature]}`,
-      },
-      {
-        role: "user",
-        content: buildUserPrompt(storeName, input),
-      },
-    ],
-  });
+  let response;
+  try {
+    response = await withGeminiRetry(
+      () => gemini.models.generateContent({
+        model: getGeminiModel(),
+        contents: buildUserPrompt(storeName, input),
+        config: {
+          systemInstruction: `You write ecommerce copy for a merchant dashboard. ${FEATURE_INSTRUCTIONS[payload.feature]}`,
+          temperature: 0.6,
+          maxOutputTokens: 700,
+          responseMimeType: "application/json",
+        },
+      }),
+      "generate",
+    );
+  } catch (error) {
+    mapAiProviderError(error, "generate");
+  }
 
-  const content = completion.choices[0]?.message?.content || "{}";
+  const content = textFromGemini(response);
+  if (!content) {
+    logGeminiError("generate", new Error("Gemini returned an empty response"), {
+      model: getGeminiModel(),
+    });
+    throw new HttpError(502, "The AI service returned an invalid response.");
+  }
+
   const result = shapeResult(payload.feature, parseJsonContent(content));
+  const tokens = usageFromGemini(response);
 
   await prisma.aIUsage.create({
     data: {
       storeId,
       feature: payload.feature,
-      inputTokens: completion.usage?.prompt_tokens || 0,
-      outputTokens: completion.usage?.completion_tokens || 0,
+      inputTokens: tokens.inputTokens,
+      outputTokens: tokens.outputTokens,
     },
   });
 
@@ -171,62 +238,58 @@ export async function generate(storeId, storeName, payload) {
 
 const CHAT_TOOLS = [
   {
-    type: "function",
-    function: {
-      name: "search_products",
-      description: "Search this store's active products by name or description.",
-      parameters: {
-        type: "object",
-        properties: {
-          query: { type: "string" },
+    functionDeclarations: [
+      {
+        name: "search_products",
+        description: "Search this store's active products by name or description.",
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            query: { type: Type.STRING },
+          },
         },
       },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "get_product",
-      description: "Get one active product from this store by product id.",
-      parameters: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          productId: { type: "string" },
+      {
+        name: "get_product",
+        description: "Get one active product from this store by product id.",
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            productId: { type: Type.STRING },
+          },
+          required: ["productId"],
         },
-        required: ["productId"],
       },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "get_store_policies",
-      description: "Get this store's return policy, shipping policy, and support email.",
-      parameters: {
-        type: "object",
-        properties: {},
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "lookup_order",
-      description:
-        "Look up an order in this store. Requires the customer email used at checkout.",
-      parameters: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          orderId: { type: "string" },
-          email: { type: "string" },
+      {
+        name: "get_store_policies",
+        description: "Get this store's return policy, shipping policy, and support email.",
+        parameters: {
+          type: Type.OBJECT,
+          properties: {},
         },
-        required: ["orderId", "email"],
       },
-    },
+      {
+        name: "lookup_order",
+        description: "Look up an order in this store. Requires the customer email used at checkout.",
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            orderId: { type: Type.STRING },
+            email: { type: Type.STRING },
+          },
+          required: ["orderId", "email"],
+        },
+      },
+    ],
   },
 ];
+
+function historyToGeminiContents(history) {
+  return history.map((message) => ({
+    role: message.role === "assistant" ? "model" : "user",
+    parts: [{ text: message.content }],
+  }));
+}
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -334,65 +397,72 @@ export async function getPublicChatStatus(storeId) {
 }
 
 export async function chat(storeId, storeName, payload) {
-  const history = payload.messages.map((message) => ({
-    role: message.role,
-    content: message.content,
-  }));
-
   await assertWithinLimit(storeId);
-  const openai = requireOpenAI();
-
-  const messages = [
-    {
-      role: "system",
-      content: [
-        `You are the customer assistant for ${storeName} only.`,
-        "Use tools to look up products, store policies, and orders.",
-        "Never invent prices, stock, policies, or order status.",
-        "Never access or discuss another store.",
-        "For orders, you must have the customer email used at checkout.",
-        "Do not ask for passwords or payment card numbers.",
-        "If a tool does not find something, say so.",
-      ].join(" "),
-    },
-    ...history,
-  ];
+  const gemini = requireGemini();
+  const contents = historyToGeminiContents(payload.messages);
+  const systemInstruction = [
+    `You are the customer assistant for ${storeName} only.`,
+    "Use tools to look up products, store policies, and orders.",
+    "Never invent prices, stock, policies, or order status.",
+    "Never access or discuss another store.",
+    "For orders, you must have the customer email used at checkout.",
+    "Do not ask for passwords or payment card numbers.",
+    "If a tool does not find something, say so.",
+  ].join(" ");
 
   let inputTokens = 0;
   let outputTokens = 0;
   let reply = "";
 
   for (let round = 0; round < 4; round += 1) {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      temperature: 0.4,
-      max_completion_tokens: 500,
-      messages,
-      tools: CHAT_TOOLS,
-      tool_choice: "auto",
-    });
+    let response;
+    try {
+      response = await withGeminiRetry(
+        () => gemini.models.generateContent({
+          model: getGeminiModel(),
+          contents,
+          config: {
+            systemInstruction,
+            temperature: 0.4,
+            maxOutputTokens: 500,
+            tools: CHAT_TOOLS,
+            automaticFunctionCalling: { disable: true },
+          },
+        }),
+        "chat",
+      );
+    } catch (error) {
+      mapAiProviderError(error, "chat");
+    }
 
-    inputTokens += completion.usage?.prompt_tokens || 0;
-    outputTokens += completion.usage?.completion_tokens || 0;
+    const tokens = usageFromGemini(response);
+    inputTokens += tokens.inputTokens;
+    outputTokens += tokens.outputTokens;
 
-    const message = completion.choices[0]?.message;
-    if (!message) {
+    const functionCalls = response?.functionCalls || [];
+    if (!functionCalls.length) {
+      reply = textFromGemini(response);
       break;
     }
 
-    if (!message.tool_calls?.length) {
-      reply = message.content || "";
-      break;
+    const modelContent = response?.candidates?.[0]?.content;
+    if (modelContent) {
+      contents.push(modelContent);
     }
 
-    messages.push(message);
-
-    for (const toolCall of message.tool_calls) {
-      const output = await runChatTool(storeId, toolCall.function?.name, toolCall.function?.arguments);
-      messages.push({
-        role: "tool",
-        tool_call_id: toolCall.id,
-        content: JSON.stringify(output),
+    for (const toolCall of functionCalls) {
+      const output = await runChatTool(storeId, toolCall.name, toolCall.args);
+      contents.push({
+        role: "user",
+        parts: [
+          {
+            functionResponse: {
+              name: toolCall.name,
+              id: toolCall.id,
+              response: output,
+            },
+          },
+        ],
       });
     }
   }

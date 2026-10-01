@@ -1,12 +1,21 @@
 import { lazy, Suspense } from "react";
-import { Link, Route, Routes, useOutletContext } from "react-router-dom";
+import { Link, Navigate, Route, Routes, useLocation, useOutletContext } from "react-router-dom";
 import ProtectedRoute from "../components/common/ProtectedRoute.jsx";
 import LoginPage from "../pages/auth/LoginPage.jsx";
 import RegisterPage from "../pages/auth/RegisterPage.jsx";
+import CustomerLoginPage from "../pages/auth/CustomerLoginPage.jsx";
+import CustomerRegisterPage from "../pages/auth/CustomerRegisterPage.jsx";
 import HomePage from "../pages/HomePage.jsx";
+import BrowseStoresPage from "../pages/marketplace/BrowseStoresPage.jsx";
+import MarketplaceCategoriesPage from "../pages/marketplace/MarketplaceCategoriesPage.jsx";
 
 const DashboardLayout = lazy(() => import("../components/layout/DashboardLayout.jsx"));
+const CustomerAccountLayout = lazy(() => import("../components/layout/CustomerAccountLayout.jsx"));
 const AccountPage = lazy(() => import("../pages/auth/AccountPage.jsx"));
+const CustomerProfilePage = lazy(() => import("../pages/account/CustomerProfilePage.jsx"));
+const CustomerOrdersPage = lazy(() => import("../pages/account/CustomerOrdersPage.jsx"));
+const CustomerOrderDetailPage = lazy(() => import("../pages/account/CustomerOrderDetailPage.jsx"));
+const MerchantOrderPage = lazy(() => import("../pages/dashboard/MerchantOrderPage.jsx"));
 const AiCenterPage = lazy(() => import("../pages/dashboard/AiCenterPage.jsx"));
 const AnalyticsPage = lazy(() => import("../pages/dashboard/AnalyticsPage.jsx"));
 const BillingPage = lazy(() => import("../pages/dashboard/BillingPage.jsx"));
@@ -24,7 +33,13 @@ const PoliciesPage = lazy(() => import("../pages/storefront/PoliciesPage.jsx"));
 const ProductDetailsPage = lazy(() => import("../pages/storefront/ProductDetailsPage.jsx"));
 const StorefrontLayout = lazy(() => import("../pages/storefront/StorefrontLayout.jsx"));
 const StoreHomePage = lazy(() => import("../pages/storefront/StoreHomePage.jsx"));
+const StoreCategoriesPage = lazy(() => import("../pages/storefront/StoreCategoriesPage.jsx"));
 const StoreProductsPage = lazy(() => import("../pages/storefront/StoreProductsPage.jsx"));
+
+function DashboardRedirect() {
+  const { pathname } = useLocation();
+  return <Navigate to={pathname.replace(/^\/dashboard/, "/store")} replace />;
+}
 
 function NotFoundPage() {
   return (
@@ -65,12 +80,33 @@ function AppRoutes() {
     <Suspense fallback={<RouteFallback />}>
       <Routes>
         <Route path="/" element={<HomePage />} />
+        <Route path="/stores" element={<BrowseStoresPage />} />
+        <Route path="/categories" element={<MarketplaceCategoriesPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/merchant/login" element={<LoginPage />} />
+        <Route path="/merchant/register" element={<RegisterPage />} />
+        <Route path="/customer/login" element={<CustomerLoginPage />} />
+        <Route path="/customer/register" element={<CustomerRegisterPage />} />
+        <Route path="/dashboard" element={<DashboardRedirect />} />
+        <Route path="/dashboard/*" element={<DashboardRedirect />} />
         <Route
           path="/account"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute roles={["CUSTOMER"]}>
+              <CustomerAccountLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<CustomerProfilePage />} />
+          <Route path="profile" element={<CustomerProfilePage />} />
+          <Route path="orders" element={<CustomerOrdersPage />} />
+          <Route path="orders/:orderId" element={<CustomerOrderDetailPage />} />
+        </Route>
+        <Route
+          path="/merchant/account"
+          element={
+            <ProtectedRoute roles={["MERCHANT", "ADMIN"]}>
               <AccountPage />
             </ProtectedRoute>
           }
@@ -78,7 +114,7 @@ function AppRoutes() {
         <Route
           path="/store"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute roles={["MERCHANT", "ADMIN"]}>
               <DashboardLayout />
             </ProtectedRoute>
           }
@@ -87,6 +123,7 @@ function AppRoutes() {
           <Route path="products" element={<ProductsPage />} />
           <Route path="categories" element={<CategoriesPage />} />
           <Route path="orders" element={<OrdersPage />} />
+          <Route path="orders/:orderId" element={<MerchantOrderPage />} />
           <Route path="customers" element={<CustomersPage />} />
           <Route path="analytics" element={<AnalyticsPage />} />
           <Route path="ai" element={<AiCenterPage />} />
@@ -107,6 +144,7 @@ function AppRoutes() {
         <Route path="/s/:slug" element={<StorefrontLayout />}>
           <Route index element={<StoreHomePage />} />
           <Route path="products" element={<StoreProductsPage />} />
+          <Route path="categories" element={<StoreCategoriesPage />} />
           <Route path="products/:productId" element={<ProductDetailsPage />} />
           <Route path="cart" element={<CartPage />} />
           <Route path="checkout" element={<CheckoutPage />} />

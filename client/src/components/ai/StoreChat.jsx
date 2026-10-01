@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { toast } from "react-toastify";
 import { getErrorMessage } from "../../services/api.js";
 import { getPublicAiStatusRequest, sendStoreChatRequest } from "../../services/ai.service.js";
 
@@ -61,7 +62,9 @@ function StoreChat({ store }) {
       const data = await sendStoreChatRequest(slug, nextMessages);
       setMessages([...nextMessages, { role: "assistant", content: data.reply }]);
     } catch (err) {
-      setError(getErrorMessage(err, "Could not reach the assistant"));
+      const message = getErrorMessage(err, "Could not reach the assistant");
+      setError(message);
+      toast.error(message);
     } finally {
       setSending(false);
     }

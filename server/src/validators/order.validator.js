@@ -15,7 +15,12 @@ export const updateCartItemSchema = z.object({
 
 export const checkoutSchema = z.object({
   name: z.string().trim().min(2, "Name must be at least 2 characters").max(80),
-  email: z.string().trim().email("Enter a valid email").max(255),
+  phone: z.string().trim().max(30).optional().or(z.literal("")),
+  address: z.string().trim().min(3, "Address is required").max(200),
+  city: z.string().trim().min(2, "City is required").max(80),
+  state: z.string().trim().max(80).optional().or(z.literal("")),
+  postalCode: z.string().trim().max(20).optional().or(z.literal("")),
+  country: z.string().trim().min(2, "Country is required").max(80),
 });
 
 export const publicOrderQuerySchema = z.object({
@@ -34,5 +39,5 @@ export const orderQuerySchema = z.object({
 });
 
 export const updateOrderStatusSchema = z.object({
-  status: z.enum(["PAID", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"]),
+  status: z.enum(["CONFIRMED", "PAID", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"]),
 });

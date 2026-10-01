@@ -1,126 +1,195 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import Header from "../components/layout/Header.jsx";
-import { useAuth } from "../context/AuthContext.jsx";
-import { checkHealth } from "../services/api.js";
+import { toast } from "react-toastify";
+import MarketplaceLayout from "../components/layout/MarketplaceLayout.jsx";
+import StoreCard from "../components/marketplace/StoreCard.jsx";
+import ProductCard from "../components/storefront/ProductCard.jsx";
+import { getErrorMessage } from "../services/api.js";
+import {
+  listPublicMarketplaceCategoriesRequest,
+  listPublicMarketplaceProductsRequest,
+  listPublicStoresRequest,
+} from "../services/store.service.js";
 
 function HomePage() {
-  const { isAuthenticated, user } = useAuth();
-  const [status, setStatus] = useState("checking");
-  const [database, setDatabase] = useState("");
+  const [stores, setStores] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
 
-    async function loadHealth() {
+    async function loadMarketplace() {
+      setLoading(true);
+      setError("");
       try {
-        const data = await checkHealth();
+        const [storeData, productData, categoryData] = await Promise.all([
+          listPublicStoresRequest({ limit: 6 }),
+          listPublicMarketplaceProductsRequest({ limit: 8 }),
+          listPublicMarketplaceCategoriesRequest(),
+        ]);
         if (!cancelled) {
-          setStatus(data?.status === "ok" ? "ok" : "error");
-          setDatabase(data?.database || "");
+          setStores(storeData.items);
+          setProducts(productData.items);
+          setCategories(categoryData);
         }
       } catch (err) {
         if (!cancelled) {
-          setStatus("error");
-          setError(err.message || "Could not reach the API");
+          setError(getErrorMessage(err, "Unable to load stores"));
+          toast.error(getErrorMessage(err, "Unable to load stores"));
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
         }
       }
     }
 
-    loadHealth();
-
+    loadMarketplace();
     return () => {
       cancelled = true;
     };
   }, []);
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-canvas">
-      <div className="ui-orb -top-24 -left-16 h-72 w-72 bg-indigo-200/50" />
-      <div className="ui-orb top-24 -right-16 h-64 w-64 bg-purple-200/40" />
-      <div className="ui-orb bottom-0 left-1/3 h-56 w-56 bg-cyan-200/30" />
-      <Header />
-      <main className="relative mx-auto w-full max-w-5xl px-4 py-14 sm:py-20">
-        <section className="ui-page max-w-none text-center">
-          <p className="inline-flex items-center gap-2 rounded-full border border-line bg-white px-3 py-1 text-xs font-medium text-brand shadow-sm">
-            <span className="h-1.5 w-1.5 rounded-full bg-cyan" />
-            AI-powered seller platform
-          </p>
-          <h1 className="mx-auto mt-5 max-w-3xl text-4xl font-semibold tracking-tight text-ink sm:text-5xl">
-            Generate listings that sell with{" "}
-            <span className="ui-gradient-text">AI-powered listing generation</span>
-          </h1>
-          <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-muted sm:text-base">
-            {isAuthenticated
-              ? `Welcome back, ${user?.name}. Open your dashboard to manage products, orders, and AI copy.`
-              : "SellAi helps merchants create product copy, run a storefront, and manage orders from one clean workspace."}
-          </p>
-          <div className="mt-8 flex flex-wrap justify-center gap-3">
-            {isAuthenticated ? (
-              <Link to="/store" className="ui-btn ui-btn-primary px-5 py-2.5">
-                Open dashboard
+    <MarketplaceLayout>
+      <main>
+        <section className="border-b border-line bg-white">
+          <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:py-20">
+            <p className="text-xs font-medium uppercase tracking-[0.16em] text-brand">Independent commerce</p>
+            <h1 className="mt-3 max-w-3xl text-4xl font-semibold tracking-tight text-ink sm:text-5xl">
+              Discover independent stores.
+              <span className="block text-slate-500">Shop products from sellers on SellAi.</span>
+            </h1>
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-muted sm:text-base">
+              Browse live merchant stores, add products to a store cart, and place a real order. Every listing comes from PostgreSQL — not a demo catalog.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link to="/stores" className="ui-btn ui-btn-primary px-5 py-2.5">
+                Browse Stores
               </Link>
-            ) : (
-              <>
-                <Link to="/register" className="ui-btn ui-btn-primary px-5 py-2.5">
-                  Create merchant account
-                </Link>
-                <Link to="/login" className="ui-btn ui-btn-secondary px-5 py-2.5">
-                  Log in
-                </Link>
-              </>
-            )}
+              <Link to="/register" className="ui-btn ui-btn-secondary px-5 py-2.5">
+                Start Selling
+              </Link>
+            </div>
           </div>
         </section>
 
-        <div className="ui-card mx-auto mt-14 max-w-3xl overflow-hidden p-3">
-          <div className="rounded-2xl bg-soft p-4 sm:p-6">
-            <div className="mb-4 flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full bg-rose-300" />
-              <span className="h-2.5 w-2.5 rounded-full bg-amber-300" />
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-300" />
-              <span className="ml-2 text-xs font-medium text-muted">Merchant dashboard preview</span>
+        <div className="mx-auto w-full max-w-6xl px-4 py-12">
+          {error ? <p className="ui-alert ui-alert-error">{error}</p> : null}
+
+          <section>
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-semibold text-ink">Featured stores</h2>
+                <p className="mt-1 text-sm text-muted">Published merchant stores from the live database.</p>
+              </div>
+              <Link to="/stores" className="ui-link text-sm">
+                View all
+              </Link>
             </div>
-            <div className="grid gap-3 sm:grid-cols-3">
-              {["Sales", "Orders", "AI listings"].map((label, index) => (
-                <div key={label} className="rounded-xl border border-line bg-white p-4">
-                  <p className="text-xs uppercase tracking-[0.08em] text-muted">{label}</p>
-                  <p className="mt-2 text-xl font-semibold text-ink">{["$4,280", "128", "36"][index]}</p>
-                </div>
-              ))}
+            {loading ? (
+              <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="ui-skeleton h-52" />
+                <div className="ui-skeleton h-52" />
+                <div className="ui-skeleton h-52" />
+              </div>
+            ) : stores.length === 0 ? (
+              <div className="ui-card mt-6 p-8 text-center">
+                <p className="text-sm text-muted">No stores are available yet.</p>
+              </div>
+            ) : (
+              <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {stores.map((store) => (
+                  <StoreCard key={store.id} store={store} />
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="mt-14">
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-semibold text-ink">New products</h2>
+                <p className="mt-1 text-sm text-muted">Recent active listings from published stores.</p>
+              </div>
+              <Link to="/stores" className="ui-link text-sm">
+                Shop stores
+              </Link>
             </div>
-            <div className="mt-3 h-24 rounded-xl border border-line bg-white px-4 py-3">
-              <div className="flex h-full items-end gap-1.5">
-                {[32, 48, 28, 64, 44, 78, 56].map((height, index) => (
-                  <div
-                    key={index}
-                    className="flex-1 rounded-t-md bg-brand"
-                    style={{ height: `${height}%` }}
+            {loading ? (
+              <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="ui-skeleton h-64" />
+                <div className="ui-skeleton h-64" />
+                <div className="ui-skeleton h-64" />
+                <div className="ui-skeleton h-64" />
+              </div>
+            ) : products.length === 0 ? (
+              <div className="ui-card mt-6 p-8 text-center">
+                <p className="text-sm text-muted">No products have been published yet.</p>
+              </div>
+            ) : (
+              <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {products.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    storeSlug={product.store.slug}
+                    storeName={product.store.name}
+                    currency={product.store.settings?.currency}
                   />
                 ))}
               </div>
-            </div>
-          </div>
-        </div>
+            )}
+          </section>
 
-        <div className="ui-card mx-auto mt-8 max-w-xl p-5">
-          <p className="text-sm font-medium text-ink">API health</p>
-          {status === "checking" && <p className="mt-1 text-sm text-muted">Checking...</p>}
-          {status === "ok" && (
-            <p className="mt-1 text-sm text-emerald-700">
-              Connected to Express
-              {database === "connected" ? " and PostgreSQL" : " (PostgreSQL not connected yet)"}
+          <section className="mt-14">
+            <h2 className="text-xl font-semibold text-ink">Shop by category</h2>
+            <p className="mt-1 text-sm text-muted">Store-specific categories created by merchants.</p>
+            {loading ? (
+              <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="ui-skeleton h-20" />
+                <div className="ui-skeleton h-20" />
+                <div className="ui-skeleton h-20" />
+                <div className="ui-skeleton h-20" />
+              </div>
+            ) : categories.length === 0 ? (
+              <div className="ui-card mt-6 p-8 text-center">
+                <p className="text-sm text-muted">No categories are available yet.</p>
+              </div>
+            ) : (
+              <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {categories.slice(0, 8).map((category) => (
+                  <Link
+                    key={category.id}
+                    to={`/s/${category.storeSlug}/products?category=${category.id}`}
+                    className="ui-card ui-card-hover p-4"
+                  >
+                    <p className="font-medium text-ink">{category.name}</p>
+                    <p className="mt-1 text-sm text-muted">{category.storeName}</p>
+                    <p className="mt-2 text-xs text-muted">
+                      {category.productCount} {category.productCount === 1 ? "product" : "products"}
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="ui-card mt-14 p-6 sm:p-8">
+            <h2 className="text-xl font-semibold text-ink">Sell on SellAi</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
+              Create a merchant account, publish your store, and start receiving real customer orders in your dashboard.
             </p>
-          )}
-          {status === "error" && (
-            <p className="mt-1 text-sm text-red-600">
-              {error || "API is not reachable. Start the server on port 5000."}
-            </p>
-          )}
+            <Link to="/register" className="ui-btn ui-btn-primary mt-5">
+              Start Selling
+            </Link>
+          </section>
         </div>
       </main>
-    </div>
+    </MarketplaceLayout>
   );
 }
 

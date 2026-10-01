@@ -1,32 +1,32 @@
 import { useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import Header from "../../components/layout/Header.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { getErrorMessage } from "../../services/api.js";
 
 function RegisterPage() {
-  const { isAuthenticated, loading, register } = useAuth();
+  const { isAuthenticated, user, loading, register } = useAuth();
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState("");
 
   if (!loading && isAuthenticated) {
-    return <Navigate to="/store" replace />;
+    return <Navigate to={user?.role === "CUSTOMER" ? "/account" : "/store"} replace />;
   }
 
   async function handleSubmit(event) {
     event.preventDefault();
-    setError("");
     setSubmitting(true);
 
     try {
       await register({ name, email, password });
+      toast.success("Account created successfully");
       navigate("/store", { replace: true });
     } catch (err) {
-      setError(getErrorMessage(err, "Could not create account"));
+      toast.error(getErrorMessage(err, "Unable to create account"));
     } finally {
       setSubmitting(false);
     }
@@ -47,12 +47,6 @@ function RegisterPage() {
           <p className="ui-sub">
             Register as a merchant to manage your store.
           </p>
-
-          {error && (
-            <p className="ui-alert ui-alert-error">
-              {error}
-            </p>
-          )}
 
           <label className="ui-label mt-6">
             Name

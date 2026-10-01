@@ -158,11 +158,18 @@ export async function listProducts(storeId, query, { activeOnly = false } = {}) 
       : {}),
   };
 
+  const orderBy =
+    query.sort === "price_asc"
+      ? { price: "asc" }
+      : query.sort === "price_desc"
+        ? { price: "desc" }
+        : { createdAt: "desc" };
+
   const [items, total] = await prisma.$transaction([
     prisma.product.findMany({
       where,
       select: productSelect,
-      orderBy: { createdAt: "desc" },
+      orderBy,
       skip: pagination.skip,
       take: pagination.limit,
     }),

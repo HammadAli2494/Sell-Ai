@@ -1,4 +1,6 @@
 import { Link, useOutletContext } from "react-router-dom";
+import { toast } from "react-toastify";
+import { useAuth } from "../../context/AuthContext.jsx";
 import { useCart } from "../../context/CartContext.jsx";
 import { getErrorMessage } from "../../services/api.js";
 import { formatMoney } from "../../utils/money.js";
@@ -7,6 +9,7 @@ import { useState } from "react";
 
 function CartPage() {
   const { store } = useOutletContext();
+  const { isCustomer } = useAuth();
   const { cart, loading, updateItem, removeItem } = useCart();
   const [error, setError] = useState("");
 
@@ -62,13 +65,27 @@ function CartPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="ui-btn ui-btn-secondary !px-2.5"
+                    onClick={() => handleQuantity(item.id, Math.max(1, item.quantity - 1))}
+                  >
+                    -
+                  </button>
                   <input
                     type="number"
                     min="1"
                     value={item.quantity}
                     onChange={(event) => handleQuantity(item.id, Number(event.target.value))}
-                    className="ui-input mt-0 w-20"
+                    className="ui-input mt-0 w-16"
                   />
+                  <button
+                    type="button"
+                    className="ui-btn ui-btn-secondary !px-2.5"
+                    onClick={() => handleQuantity(item.id, item.quantity + 1)}
+                  >
+                    +
+                  </button>
                   <button
                     type="button"
                     onClick={() => handleRemove(item.id)}
@@ -84,12 +101,23 @@ function CartPage() {
             <p className="text-base font-semibold text-ink">
               Subtotal: {formatMoney(cart.subtotal, store.settings?.currency)}
             </p>
+            <div className="flex flex-wrap gap-2">
+              <Link to={`/s/${store.slug}/products`} className="ui-btn ui-btn-secondary">
+                Continue shopping
+              </Link>
             <Link
-              to={`/s/${store.slug}/checkout`}
+              to={isCustomer ? `/s/${store.slug}/checkout` : "/customer/login"}
+              state={isCustomer ? undefined : { from: { pathname: `/s/${store.slug}/checkout` } }}
               className="store-primary inline-flex rounded-xl px-4 py-2.5 text-sm font-medium"
+              onClick={() => {
+                if (!isCustomer) {
+                  toast.warning("Please log in as a customer to continue");
+                }
+              }}
             >
-              Checkout
+              {isCustomer ? "Proceed to checkout" : "Log in to checkout"}
             </Link>
+            </div>
           </div>
         </>
       )}

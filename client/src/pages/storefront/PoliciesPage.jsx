@@ -23,6 +23,20 @@ function PoliciesPage() {
         </p>
       </section>
 
+      <section className="ui-card mt-4 p-5">
+        <h2 className="text-base font-semibold text-ink">Privacy</h2>
+        <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted">
+          {settings.privacyPolicy || "No privacy policy has been published."}
+        </p>
+      </section>
+
+      <section className="ui-card mt-4 p-5">
+        <h2 className="text-base font-semibold text-ink">Terms</h2>
+        <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted">
+          {settings.termsPolicy || "No terms have been published."}
+        </p>
+      </section>
+
       {settings.supportEmail ? (
         <p className="mt-6 text-sm text-muted">
           Support:{" "}

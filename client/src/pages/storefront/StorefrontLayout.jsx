@@ -54,8 +54,8 @@ function StorefrontLayout() {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center bg-canvas px-4 text-center">
         <p className="text-sm text-red-600">{error || "Store not found"}</p>
-        <Link to="/" className="ui-link mt-4 text-sm">
-          Go home
+        <Link to="/stores" className="ui-link mt-4 text-sm">
+          Browse stores
         </Link>
       </main>
     );
@@ -72,24 +72,25 @@ function StorefrontLayout() {
           <Outlet context={{ store }} />
         </div>
         <footer className="mt-auto border-t border-line bg-white px-4 py-8 text-sm text-muted">
-          <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="font-medium text-ink">{store.name}</p>
-            <div className="flex flex-wrap gap-4">
-              <Link to="/" className="ui-link">
-                SellAi
-              </Link>
+          <div className="mx-auto grid w-full max-w-6xl gap-6 sm:grid-cols-3">
+            <div>
+              <p className="font-medium text-ink">{store.name}</p>
+              <p className="mt-2 text-sm leading-6">{store.description || "Independent store on SellAi."}</p>
+            </div>
+            <div className="grid gap-2">
               <Link to={`/s/${store.slug}/policies`} className="ui-link">
                 Policies
               </Link>
-              <Link to={`/s/${store.slug}/orders`} className="ui-link">
-                Orders
+              <Link to={`/s/${store.slug}/products`} className="ui-link">
+                Products
               </Link>
               {store.settings?.supportEmail ? (
                 <a className="ui-link" href={`mailto:${store.settings.supportEmail}`}>
-                  Support
+                  Contact
                 </a>
               ) : null}
             </div>
+            <p className="sm:text-right">Powered by SellAi</p>
           </div>
         </footer>
         <StoreChat store={store} />

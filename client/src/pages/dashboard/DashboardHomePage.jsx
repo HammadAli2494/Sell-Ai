@@ -8,6 +8,7 @@ import { useStore } from "../../context/StoreContext.jsx";
 import { getErrorMessage } from "../../services/api.js";
 import { getAnalyticsRequest } from "../../services/analytics.service.js";
 import { formatMoney } from "../../utils/money.js";
+import { getStoreUrl } from "../../utils/storeUrl.js";
 
 function DashboardHomePage() {
   const { user } = useAuth();
@@ -134,14 +135,17 @@ function DashboardHomePage() {
                   Generate listing
                 </Link>
                 <Link to="/store/products" className="ui-btn ui-btn-secondary justify-start">
-                  Manage products
+                  Add product
                 </Link>
                 <Link to="/store/orders" className="ui-btn ui-btn-secondary justify-start">
-                  Review orders
+                  View orders
                 </Link>
-                <a href={`/s/${store.slug}`} className="ui-btn ui-btn-secondary justify-start">
-                  View storefront
+                <a href={getStoreUrl(store.slug)} className="ui-btn ui-btn-secondary justify-start">
+                  View store
                 </a>
+                <Link to="/store/settings" className="ui-btn ui-btn-secondary justify-start">
+                  Store settings
+                </Link>
               </div>
             </section>
           </div>
@@ -161,7 +165,9 @@ function DashboardHomePage() {
                   {analytics.recentOrders.map((order) => (
                     <li key={order.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
                       <div className="min-w-0">
-                        <p className="truncate font-medium text-ink">{order.customer.name}</p>
+                        <Link to={`/store/orders/${order.id}`} className="truncate font-medium text-ink hover:text-brand">
+                          {order.customer.name}
+                        </Link>
                         <div className="mt-1">
                           <StatusBadge status={order.status} />
                         </div>

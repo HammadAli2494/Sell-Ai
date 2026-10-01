@@ -12,7 +12,7 @@ This repo is split into two apps:
 - Merchant register, login, and one store per account
 - Products, categories, orders, customers, analytics, and store settings
 - Public storefront with search, cart, checkout, and an AI assistant
-- Stripe billing and OpenAI generators, both server-side only
+- Stripe billing and Gemini generators, both server-side only
 - Tenant isolation from the authenticated store or public slug
 
 ## Tech stack
@@ -21,7 +21,7 @@ This repo is split into two apps:
 - **Backend:** Node.js, Express, JavaScript, REST
 - **Database:** PostgreSQL, Prisma
 - **Auth:** JWT, bcrypt
-- **AI:** OpenAI (server-side only)
+- **AI:** Google Gemini (server-side only)
 - **Payments:** Stripe (server-side only)
 
 ## Project structure
@@ -64,7 +64,7 @@ cp server/.env.example server/.env
 | `PORT` | API port (default `5000`) |
 | `DATABASE_URL` | PostgreSQL connection string |
 | `JWT_SECRET` | Secret used to sign JWTs. Must be at least 32 characters. |
-| `OPENAI_API_KEY` | OpenAI key, server only |
+| `GEMINI_API_KEY` | Gemini key, server only |
 | `STRIPE_SECRET_KEY` | Stripe secret, server only |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret |
 | `STRIPE_PRICE_PRO` | Stripe price id for the Pro plan |
@@ -129,7 +129,7 @@ npm start
 
 ## AI setup
 
-AI runs only on the server. Add `OPENAI_API_KEY` to `server/.env`. The React app calls Express; Express calls OpenAI. The key never goes to the browser.
+AI runs only on the server. Add `GEMINI_API_KEY` to `server/.env`. The React app calls Express; Express calls Gemini. The key never goes to the browser.
 
 Before each generation the API:
 
@@ -138,7 +138,7 @@ Before each generation the API:
 3. Reads plan and status from the subscription row
 4. Counts `AIUsage` for the current month
 5. Allows or rejects the request
-6. Calls OpenAI
+6. Calls Gemini
 7. Saves token usage
 
 ```text
@@ -148,7 +148,7 @@ POST /api/ai/generate
 
 `POST /api/ai/generate` accepts `description`, `title`, `seo`, or `marketing`. Optional `productId` is loaded from the merchant's store only.
 
-The storefront chatbot is public but still scoped to the store in the URL slug. It cannot see other stores. OpenAI only gets results from server tools: product search, one product, store policies, and an order lookup that requires both the order id and the checkout email.
+The storefront chatbot is public but still scoped to the store in the URL slug. It cannot see other stores. Gemini only gets results from server tools: product search, one product, store policies, and an order lookup that requires both the order id and the checkout email.
 
 ```text
 GET  /api/ai/public/:slug
@@ -230,7 +230,7 @@ GET  /api/orders/public?slug=&email=
 GET  /api/orders/public/:id?slug=&email=
 ```
 
-Cart identity is a server-created cart id sent as `X-Cart-Id`. Checkout creates a `PENDING` order and decrements stock. Merchants can mark an order `PAID` from the dashboard. Customers look up orders on the storefront with the checkout email.
+Cart identity is a server-created cart id sent as `X-Cart-Id`. Checkout requires a **customer** account and creates a real `PENDING` order with shipping details. Merchants update fulfillment status from the dashboard. Customers see their orders under `/account/orders`. Storefront email lookup still works for older public orders.
 
 ## Merchant dashboard
 
@@ -244,4 +244,4 @@ Analytics are scoped to `req.store.id`. The dashboard reuses the Phase 4 product
 
 ## Current status
 
-The website is complete for the original SaaS MVP: merchant dashboard, public storefront, order lookup, policies, Stripe subscription billing, and server-side AI. New stores start on FREE. Add OpenAI and Stripe keys in `server/.env` to enable generators, chat, and paid plans.
+The website is a multi-tenant SaaS MVP: separate merchant and customer auth, isolated stores, public storefront, customer checkout, merchant order management, REST order polling, Stripe SaaS billing, and server-side AI. New stores start on FREE. Add Gemini and Stripe keys in `server/.env` to enable generators, chat, and paid plans.

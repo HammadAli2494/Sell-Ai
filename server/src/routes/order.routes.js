@@ -1,5 +1,14 @@
 import { Router } from "express";
-import { checkout, getPublicOne, list, listPublic, updateStatus } from "../controllers/order.controller.js";
+import {
+  checkout,
+  getMine,
+  getOne,
+  getPublicOne,
+  list,
+  listMine,
+  listPublic,
+  updateStatus,
+} from "../controllers/order.controller.js";
 import { requireAuth, requireRole } from "../middleware/auth.middleware.js";
 import { checkoutLimiter, publicLimiter } from "../middleware/rateLimit.middleware.js";
 import { requirePublicStore, requireStore } from "../middleware/tenant.middleware.js";
@@ -19,11 +28,15 @@ const requireMerchantStore = [requireAuth, requireRole("MERCHANT", "ADMIN"), req
 router.post(
   "/checkout",
   checkoutLimiter,
+  requireAuth,
+  requireRole("CUSTOMER"),
   validateQuery(storeSlugQuerySchema),
   requirePublicStore,
   validate(checkoutSchema),
   checkout,
 );
+router.get("/me", requireAuth, requireRole("CUSTOMER"), validateQuery(orderQuerySchema), listMine);
+router.get("/me/:id", requireAuth, requireRole("CUSTOMER"), getMine);
 router.get(
   "/public",
   publicLimiter,
@@ -40,6 +53,7 @@ router.get(
 );
 
 router.get("/", ...requireMerchantStore, validateQuery(orderQuerySchema), list);
+router.get("/:id", ...requireMerchantStore, getOne);
 router.patch("/:id", ...requireMerchantStore, validate(updateOrderStatusSchema), updateStatus);
 
 export default router;

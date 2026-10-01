@@ -5,8 +5,23 @@ import * as orderService from "../services/order.service.js";
 
 export const checkout = asyncHandler(async (req, res) => {
   const cartId = parseCartId(req.headers["x-cart-id"]);
-  const order = await orderService.checkout(req.store.id, cartId, req.body);
+  const order = await orderService.checkout(req.store.id, cartId, req.user, req.body);
   sendSuccess(res, { order }, 201);
+});
+
+export const listMine = asyncHandler(async (req, res) => {
+  const result = await orderService.listMyOrders(req.user.id, req.validatedQuery || req.query);
+  sendSuccess(res, result);
+});
+
+export const getMine = asyncHandler(async (req, res) => {
+  const order = await orderService.getMyOrder(req.user.id, req.params.id);
+  sendSuccess(res, { order });
+});
+
+export const getOne = asyncHandler(async (req, res) => {
+  const order = await orderService.getMerchantOrder(req.store.id, req.params.id);
+  sendSuccess(res, { order });
 });
 
 export const list = asyncHandler(async (req, res) => {

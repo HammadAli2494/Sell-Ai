@@ -1,9 +1,12 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import {
+  changePasswordRequest,
   getCurrentUserRequest,
   loginRequest,
   logoutRequest,
+  registerCustomerRequest,
   registerRequest,
+  updateProfileRequest,
 } from "../services/auth.service.js";
 import { clearToken, getToken, setToken } from "../utils/tokenStorage.js";
 
@@ -57,11 +60,28 @@ export function AuthProvider({ children }) {
     return data.user;
   }
 
+  async function registerCustomer(payload) {
+    const data = await registerCustomerRequest(payload);
+    setToken(data.token);
+    setUser(data.user);
+    return data.user;
+  }
+
   async function login(payload) {
     const data = await loginRequest(payload);
     setToken(data.token);
     setUser(data.user);
     return data.user;
+  }
+
+  async function updateProfile(payload) {
+    const nextUser = await updateProfileRequest(payload);
+    setUser(nextUser);
+    return nextUser;
+  }
+
+  async function changePassword(payload) {
+    return changePasswordRequest(payload);
   }
 
   async function logout() {
@@ -80,8 +100,13 @@ export function AuthProvider({ children }) {
       user,
       loading,
       isAuthenticated: Boolean(user),
+      isMerchant: user?.role === "MERCHANT" || user?.role === "ADMIN",
+      isCustomer: user?.role === "CUSTOMER",
       register,
+      registerCustomer,
       login,
+      updateProfile,
+      changePassword,
       logout,
     }),
     [user, loading],

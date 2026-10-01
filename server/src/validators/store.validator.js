@@ -5,9 +5,16 @@ export const createStoreSchema = z.object({
   description: z.string().trim().max(500).optional(),
 });
 
+export const publicStoreQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(50).optional(),
+  search: z.string().trim().max(80).optional(),
+});
+
 export const updateStoreSchema = z.object({
   name: z.string().trim().min(2, "Store name must be at least 2 characters").max(80).optional(),
   description: z.string().trim().max(500).optional(),
+  isActive: z.boolean().optional(),
   settings: z
     .object({
       primaryColor: z
@@ -25,6 +32,8 @@ export const updateStoreSchema = z.object({
       logoUrl: z.string().trim().url("Enter a valid image URL").max(500).optional().or(z.literal("")),
       returnPolicy: z.string().trim().max(2000).optional(),
       shippingPolicy: z.string().trim().max(2000).optional(),
+      privacyPolicy: z.string().trim().max(4000).optional(),
+      termsPolicy: z.string().trim().max(4000).optional(),
     })
     .optional(),
 });

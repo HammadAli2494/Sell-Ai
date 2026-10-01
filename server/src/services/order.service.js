@@ -29,14 +29,30 @@ const cartSelect = {
 const orderSelect = {
   id: true,
   status: true,
+  paymentStatus: true,
   total: true,
+  shippingName: true,
+  shippingPhone: true,
+  shippingAddress: true,
+  shippingCity: true,
+  shippingState: true,
+  shippingPostalCode: true,
+  shippingCountry: true,
   createdAt: true,
   updatedAt: true,
+  store: {
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+    },
+  },
   customer: {
     select: {
       id: true,
       name: true,
       email: true,
+      userId: true,
     },
   },
   items: {
@@ -54,6 +70,16 @@ const orderSelect = {
       },
     },
   },
+};
+
+const ORDER_TRANSITIONS = {
+  PENDING: ["CONFIRMED", "PAID", "PROCESSING", "CANCELLED"],
+  CONFIRMED: ["PAID", "PROCESSING", "SHIPPED", "CANCELLED"],
+  PAID: ["PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"],
+  PROCESSING: ["SHIPPED", "DELIVERED", "CANCELLED"],
+  SHIPPED: ["DELIVERED"],
+  DELIVERED: [],
+  CANCELLED: [],
 };
 
 const customerSelect = {
@@ -218,13 +244,18 @@ export async function removeCartItem(storeId, cartId, itemId) {
   return serializeCart(updated);
 }
 
-export async function checkout(storeId, cartId, { name, email }) {
+export async function checkout(storeId, cartId, user, shipping) {
+  if (!user?.id || user.role !== "CUSTOMER") {
+    throw new HttpError(401, "Please log in as a customer to place an order");
+  }
+
   const cart = await getCartInStore(cartId, storeId);
   if (!cart || cart.items.length === 0) {
     throw new HttpError(400, "Cart is empty");
   }
 
-  const normalizedEmail = email.trim().toLowerCase();
+  const name = (shipping.name || user.name || "").trim();
+  const normalizedEmail = user.email.trim().toLowerCase();
 
   const order = await prisma.$transaction(async (tx) => {
     const customer = await tx.customer.upsert({
@@ -234,9 +265,10 @@ export async function checkout(storeId, cartId, { name, email }) {
           email: normalizedEmail,
         },
       },
-      update: { name },
+      update: { name, userId: user.id },
       create: {
         storeId,
+        userId: user.id,
         name,
         email: normalizedEmail,
       },
@@ -286,7 +318,15 @@ export async function checkout(storeId, cartId, { name, email }) {
         storeId,
         customerId: customer.id,
         status: "PENDING",
+        paymentStatus: "UNPAID",
         total,
+        shippingName: name,
+        shippingPhone: shipping.phone || null,
+        shippingAddress: shipping.address,
+        shippingCity: shipping.city,
+        shippingState: shipping.state || null,
+        shippingPostalCode: shipping.postalCode || null,
+        shippingCountry: shipping.country,
         items: {
           create: orderItems,
         },
@@ -324,19 +364,79 @@ export async function listOrders(storeId, query) {
   };
 }
 
-export async function updateOrderStatus(storeId, orderId, status) {
+export async function getMerchantOrder(storeId, orderId) {
   const order = await prisma.order.findFirst({
     where: { id: orderId, storeId },
-    select: { id: true, status: true },
+    select: orderSelect,
   });
 
   if (!order) {
     throw new HttpError(404, "Order not found");
   }
 
+  return serializeOrder(order);
+}
+
+export async function listMyOrders(userId, query) {
+  const pagination = parsePagination(query);
+  const where = { customer: { userId } };
+
+  const [items, total] = await prisma.$transaction([
+    prisma.order.findMany({
+      where,
+      select: orderSelect,
+      orderBy: { createdAt: "desc" },
+      skip: pagination.skip,
+      take: pagination.limit,
+    }),
+    prisma.order.count({ where }),
+  ]);
+
+  return {
+    items: items.map(serializeOrder),
+    ...paginationMeta({ ...pagination, total }),
+  };
+}
+
+export async function getMyOrder(userId, orderId) {
+  const order = await prisma.order.findFirst({
+    where: {
+      id: orderId,
+      customer: { userId },
+    },
+    select: orderSelect,
+  });
+
+  if (!order) {
+    throw new HttpError(404, "Order not found");
+  }
+
+  return serializeOrder(order);
+}
+
+export async function updateOrderStatus(storeId, orderId, status) {
+  const order = await prisma.order.findFirst({
+    where: { id: orderId, storeId },
+    select: { id: true, status: true, paymentStatus: true },
+  });
+
+  if (!order) {
+    throw new HttpError(404, "Order not found");
+  }
+
+  const allowed = ORDER_TRANSITIONS[order.status] || [];
+  if (status !== order.status && !allowed.includes(status)) {
+    throw new HttpError(409, `Cannot change a ${order.status} order to ${status}`);
+  }
+
+  const data = { status };
+  if (status === "PAID") {
+    data.paymentStatus = "PAID";
+  }
+
   const updated = await prisma.order.update({
     where: { id: orderId },
-    data: { status },
+    data,
     select: orderSelect,
   });
 

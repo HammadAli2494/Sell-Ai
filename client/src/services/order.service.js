@@ -30,7 +30,7 @@ export async function removeCartItemRequest(slug, itemId) {
 }
 
 export async function checkoutRequest(slug, payload) {
-  const response = await api.post("/orders/checkout", payload, cartHeaders(slug));
+  const response = await api.post("/orders/checkout", payload, { ...cartHeaders(slug), skipToast: true });
   return response.data.data.order;
 }
 
@@ -55,5 +55,20 @@ export async function listMerchantOrders(params = {}) {
 
 export async function updateOrderStatusRequest(orderId, status) {
   const response = await api.patch(`/orders/${orderId}`, { status });
+  return response.data.data.order;
+}
+
+export async function getMerchantOrderRequest(orderId) {
+  const response = await api.get(`/orders/${orderId}`);
+  return response.data.data.order;
+}
+
+export async function listMyOrdersRequest(params = {}) {
+  const response = await api.get("/orders/me", { params });
+  return response.data.data;
+}
+
+export async function getMyOrderRequest(orderId) {
+  const response = await api.get(`/orders/me/${orderId}`);
   return response.data.data.order;
 }

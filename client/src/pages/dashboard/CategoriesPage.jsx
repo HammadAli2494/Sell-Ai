@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useStore } from "../../context/StoreContext.jsx";
+import { toast } from "react-toastify";
 import { getErrorMessage } from "../../services/api.js";
 import {
   createCategoryRequest,
@@ -44,8 +45,10 @@ function CategoriesPage() {
       if (editingId) {
         await updateCategoryRequest(editingId, { name });
         setEditingId(null);
+        toast.success("Category updated");
       } else {
         await createCategoryRequest({ name });
+        toast.success("Category created");
       }
       setName("");
       await loadCategories();

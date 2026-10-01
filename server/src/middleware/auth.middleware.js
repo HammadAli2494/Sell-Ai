@@ -7,6 +7,12 @@ const userSelect = {
   email: true,
   name: true,
   role: true,
+  phone: true,
+  address: true,
+  city: true,
+  state: true,
+  postalCode: true,
+  country: true,
   createdAt: true,
 };
 

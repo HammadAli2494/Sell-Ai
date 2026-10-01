@@ -1,5 +1,7 @@
 const tones = {
   PENDING: "bg-amber-50 text-amber-800 ring-amber-200",
+  CONFIRMED: "bg-indigo-50 text-indigo-800 ring-indigo-200",
+  UNPAID: "bg-amber-50 text-amber-800 ring-amber-200",
   PAID: "bg-emerald-50 text-emerald-800 ring-emerald-200",
   PROCESSING: "bg-indigo-50 text-indigo-800 ring-indigo-200",
   SHIPPED: "bg-sky-50 text-sky-800 ring-sky-200",

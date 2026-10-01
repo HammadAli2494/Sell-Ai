@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
+import { toast } from "react-toastify";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useStore } from "../../context/StoreContext.jsx";
+import { copyStoreLink, getStoreUrl } from "../../utils/storeUrl.js";
 import MerchantNav from "./MerchantNav.jsx";
 
 const pageMeta = {
@@ -135,9 +137,31 @@ function DashboardLayout() {
             <p className="truncate text-sm font-semibold text-ink">{title}</p>
           </div>
           {hasStore ? (
-            <a href={`/s/${store.slug}`} className="ui-btn ui-btn-secondary shrink-0">
-              Storefront
-            </a>
+            <div className="flex shrink-0 gap-2">
+              {store.isActive ? (
+                <a href={getStoreUrl(store.slug)} className="ui-btn ui-btn-secondary">
+                  View store
+                </a>
+              ) : (
+                <Link to="/store/settings" className="ui-btn ui-btn-secondary">
+                  Publish store
+                </Link>
+              )}
+              <button
+                type="button"
+                className="ui-btn ui-btn-secondary hidden sm:inline-flex"
+                onClick={async () => {
+                  try {
+                    await copyStoreLink(store.slug);
+                    toast.success("Store link copied");
+                  } catch {
+                    toast.error("Could not copy link");
+                  }
+                }}
+              >
+                Copy link
+              </button>
+            </div>
           ) : null}
           <span
             className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-xs font-semibold text-brand sm:flex"

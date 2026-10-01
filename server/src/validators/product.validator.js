@@ -8,6 +8,7 @@ export const paginationQuerySchema = z.object({
 
 export const productQuerySchema = paginationQuerySchema.extend({
   categoryId: z.string().uuid().optional(),
+  sort: z.enum(["newest", "price_asc", "price_desc"]).optional(),
 });
 
 export const createCategorySchema = z.object({

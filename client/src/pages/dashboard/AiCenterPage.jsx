@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { toast } from "react-toastify";
 import { useStore } from "../../context/StoreContext.jsx";
 import { getErrorMessage } from "../../services/api.js";
 import { generateAiRequest, getAiUsageRequest } from "../../services/ai.service.js";
@@ -164,6 +165,9 @@ function AiCenterPage() {
 
   async function handleGenerate(event) {
     event.preventDefault();
+    if (generating) {
+      return;
+    }
     setGenerating(true);
     setError("");
     setSuccess("");
@@ -182,7 +186,9 @@ function AiCenterPage() {
       setResult(data.result);
       setUsage(data.usage);
     } catch (err) {
-      setError(getErrorMessage(err, "Could not generate copy"));
+      const message = getErrorMessage(err, "Could not generate copy");
+      setError(message);
+      toast.error(message);
     } finally {
       setGenerating(false);
     }
@@ -256,7 +262,7 @@ function AiCenterPage() {
         <p className="text-xs font-medium uppercase tracking-[0.14em] text-brand">Generation</p>
         <h1 className="ui-title mt-1">AI Center</h1>
         <p className="ui-sub">
-          React calls Express; Express calls OpenAI. Limits come from your store subscription in
+          React calls Express; Express calls Gemini. Limits come from your store subscription in
           the database.{" "}
           <Link to="/store/billing" className="ui-link">
             View billing
@@ -293,7 +299,7 @@ function AiCenterPage() {
             </div>
             {!usage?.configured ? (
               <p className="mt-3 text-sm text-muted">
-                OpenAI is not configured on the server yet. Add OPENAI_API_KEY to enable generation.
+                Gemini is not configured on the server yet. Add GEMINI_API_KEY to enable generation.
               </p>
             ) : null}
           </section>
@@ -303,6 +309,7 @@ function AiCenterPage() {
               <button
                 key={item.id}
                 type="button"
+                disabled={generating}
                 onClick={() => {
                   setFeature(item.id);
                   setResult(null);
@@ -392,7 +399,8 @@ function AiCenterPage() {
               <button
                 type="submit"
                 disabled={generating || atLimit || !usage?.configured}
-                className="ui-btn ui-btn-ai min-h-11"
+                aria-busy={generating}
+                className="ui-btn ui-btn-ai min-h-11 disabled:pointer-events-none disabled:opacity-60"
               >
                 {generating ? (
                   <span className="inline-flex items-center gap-2">
